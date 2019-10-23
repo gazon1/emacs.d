@@ -1,0 +1,16 @@
+#!/bin/bash
+# Usage: launch dropbox and emacs in different windows of terminal
+# Author: Max Drobin
+
+gnome-terminal -- "dropbox" & disown
+emacs26 & disown
+
+if [ "$1" = "c" ]; then
+	# close original terminal
+	PPPID=$(awk '{print $4}' "/proc/$PPID/stat")
+	kill $PPPID
+fi
+
+
+
+

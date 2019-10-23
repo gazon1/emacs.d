@@ -1,0 +1,740 @@
+* interface tweeks
+#+BEGIN_SRC emacs-lisp
+  (setq inhibit-startup-message t)
+  (tool-bar-mode -1)
+  (fset 'yes-or-no-p 'y-or-n-p)
+
+  (global-set-key (quote [f9]) 'revert-buffer)
+
+
+
+
+
+  (global-set-key "\C-co" 'occur)
+
+
+  ;;; replace C-u 0 C-l
+  (defun line-to-top-of-window ()
+    (interactive)
+    (recenter 0))
+
+
+  (global-set-key [f6] 'line-to-top-of-window)
+
+  ;; Set a Mode Line that tells me which machine, which directory,
+  ;; and which line I am on, plus the other customary information.
+  (setq-default mode-line-format
+                (quote
+                 (#("-" 0 1
+                    (help-echo
+                     "mouse-1: select window, mouse-2: delete others ..."))
+                  mode-line-mule-info
+                  mode-line-modified
+                  mode-line-frame-identification
+                  "    "
+                  mode-line-buffer-identification
+                  "    "
+                  (:eval (substring
+                          (system-name) 0 (string-match "\\..+" (system-name))))
+                  ":"
+                  default-directory
+                  #(" " 0 1
+                    (help-echo
+                     "mouse-1: select window, mouse-2: delete others ..."))
+                  (line-number-mode " Line %l ")
+                  global-mode-string
+                  #("   %[(" 0 6
+                    (help-echo
+                     "mouse-1: select window, mouse-2: delete others ..."))
+                  (:eval (mode-line-mode-name))
+                  mode-line-process
+                  minor-mode-alist
+                  #("%n" 0 2 (help-echo "mouse-2: widen" local-map (keymap ...)))
+                  ")%] "
+                  (-3 . "%P")
+                  ;;   "-%-"
+                  )))
+
+
+
+
+  ;;; unbind 'C-x f'
+  (global-unset-key "\C-xf")
+
+#+END_SRC
+
+#+RESULTS:
+
+* server
+#+BEGIN_SRC emacs-lisp
+;(server-start)
+#+END_SRC
+
+#+RESULTS:
+
+* Auto-save org buffers to disk
+https://christiantietze.de/posts/2019/03/sync-emacs-org-files/
+  #+BEGIN_SRC emacs-lisp
+(add-hook 'auto-save-hook 'org-save-all-org-buffers)
+  #+END_SRC
+
+  #+RESULTS:
+  | org-save-all-org-buffers |
+
+* Autorevert mode
+https://christiantietze.de/posts/2019/03/sync-emacs-org-files/
+https://github.com/mwfogleman/.emacs.d/blob/master/michael.org
+  #+BEGIN_SRC emacs-lisp
+    (global-auto-revert-mode t) 
+    (setq global-auto-revert-non-file-buffers t auto-revert-verbose nil)
+  #+END_SRC
+
+  #+RESULTS:
+
+* buffer move
+[[https://www.emacswiki.org/emacs/buffer-move.el][code]]
+https://stackoverflow.com/questions/1774832/how-to-swap-the-buffers-in-2-windows-emacs
+#+BEGIN_SRC emacs-lisp
+
+  ;;; buffer-move.el --- 
+
+  ;; Copyright (C) 2004-2014  Lucas Bonnet <lucas@rincevent.net.fr>
+
+  ;; Author: Lucas Bonnet <lucas@rincevent.net>
+  ;; Keywords: lisp,convenience
+  ;; Version: 0.5
+  ;; URL : https://github.com/lukhas/buffer-move
+
+  ;; This program is free software; you can redistribute it and/or
+  ;; modify it under the terms of the GNU General Public License
+  ;; as published by the Free Software Foundation; either version 2
+  ;; of the License, or (at your option) any later version.
+
+  ;; This program is distributed in the hope that it will be useful,
+  ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  ;; GNU General Public License for more details.
+
+  ;; You should have received a copy of the GNU General Public License
+  ;; along with this program; if not, write to the Free Software
+  ;; Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+  ;; 02111-1307, USA.
+
+  ;;; Commentary:
+
+  ;; This file is for lazy people wanting to swap buffers without
+  ;; typing C-x b on each window. This is useful when you have :
+
+  ;; +--------------+-------------+
+  ;; |              |             |
+  ;; |    #emacs    |    #gnus    |
+  ;; |              |             |
+  ;; +--------------+-------------+
+  ;; |                            |
+  ;; |           .emacs           |
+  ;; |                            |
+  ;; +----------------------------+
+
+  ;; and you want to have :
+
+  ;; +--------------+-------------+
+  ;; |              |             |
+  ;; |    #gnus     |   .emacs    |
+  ;; |              |             |
+  ;; +--------------+-------------+
+  ;; |                            |
+  ;; |           #emacs           |
+  ;; |                            |
+  ;; +----------------------------+
+
+  ;; With buffer-move, just go in #gnus, do buf-move-left, go to #emacs
+  ;; (which now should be on top right) and do buf-move-down.
+
+  ;; To use it, simply put a (require 'buffer-move) in your ~/.emacs and
+  ;; define some keybindings. For example, i use :
+
+  ;; (global-set-key (kbd "<C-S-up>")     'buf-move-up)
+  ;; (global-set-key (kbd "<C-S-down>")   'buf-move-down)
+  ;; (global-set-key (kbd "<C-S-left>")   'buf-move-left)
+  ;; (global-set-key (kbd "<C-S-right>")  'buf-move-right)
+
+
+  ;;; Code:
+
+
+  (require 'windmove)
+
+  ;;;###autoload
+  (defun buf-move-up ()
+    "Swap the current buffer and the buffer above the split.
+  If there is no split, ie now window above the current one, an
+  error is signaled."
+  ;;  "Switches between the current buffer, and the buffer above the
+  ;;  split, if possible."
+    (interactive)
+    (let* ((other-win (windmove-find-other-window 'up))
+           (buf-this-buf (window-buffer (selected-window))))
+      (if (null other-win)
+          (error "No window above this one")
+        ;; swap top with this one
+        (set-window-buffer (selected-window) (window-buffer other-win))
+        ;; move this one to top
+        (set-window-buffer other-win buf-this-buf)
+        (select-window other-win))))
+
+  ;;;###autoload
+  (defun buf-move-down ()
+  "Swap the current buffer and the buffer under the split.
+  If there is no split, ie now window under the current one, an
+  error is signaled."
+    (interactive)
+    (let* ((other-win (windmove-find-other-window 'down))
+           (buf-this-buf (window-buffer (selected-window))))
+      (if (or (null other-win) 
+              (string-match "^ \\*Minibuf" (buffer-name (window-buffer other-win))))
+          (error "No window under this one")
+        ;; swap top with this one
+        (set-window-buffer (selected-window) (window-buffer other-win))
+        ;; move this one to top
+        (set-window-buffer other-win buf-this-buf)
+        (select-window other-win))))
+
+  ;;;###autoload
+  (defun buf-move-left ()
+  "Swap the current buffer and the buffer on the left of the split.
+  If there is no split, ie now window on the left of the current
+  one, an error is signaled."
+    (interactive)
+    (let* ((other-win (windmove-find-other-window 'left))
+           (buf-this-buf (window-buffer (selected-window))))
+      (if (null other-win)
+          (error "No left split")
+        ;; swap top with this one
+        (set-window-buffer (selected-window) (window-buffer other-win))
+        ;; move this one to top
+        (set-window-buffer other-win buf-this-buf)
+        (select-window other-win))))
+
+  ;;;###autoload
+  (defun buf-move-right ()
+  "Swap the current buffer and the buffer on the right of the split.
+  If there is no split, ie now window on the right of the current
+  one, an error is signaled."
+    (interactive)
+    (let* ((other-win (windmove-find-other-window 'right))
+           (buf-this-buf (window-buffer (selected-window))))
+      (if (null other-win)
+          (error "No right split")
+        ;; swap top with this one
+        (set-window-buffer (selected-window) (window-buffer other-win))
+        ;; move this one to top
+        (set-window-buffer other-win buf-this-buf)
+        (select-window other-win))))
+
+
+  (global-set-key (kbd "C-c <up>")     'buf-move-up)
+  (global-set-key (kbd "C-c <down>")   'buf-move-down)
+  (global-set-key (kbd "C-c <left>")   'buf-move-left)
+  (global-set-key (kbd "C-c <right>")  'buf-move-right)
+
+
+
+
+  (provide 'buffer-move)
+  ;;; buffer-move.el ends here
+
+#+END_SRC
+
+#+RESULTS:
+: buffer-move
+
+* commention out region or line (function)
+
+[[https://stackoverflow.com/questions/9688748/emacs-comment-uncomment-current-line][comment-or-uncomment-region-or-line code on stackoverflow]]
+#+BEGIN_SRC emacs-lisp
+  (defun comment-or-uncomment-region-or-line ()
+    "Comments or uncomments the region or the current line 
+  if there's no active region."
+    (interactive)
+    (let (beg end)
+      (if (region-active-p)
+          (setq beg (region-beginning) end (region-end)) 
+        (setq beg (line-beginning-position) end (line-end-position))) 
+      (comment-or-uncomment-region beg end)
+      (next-line)
+      )
+    )
+
+
+  (global-set-key "\C-c\C-c" 'comment-or-uncomment-region-or-line)
+#+END_SRC
+
+#+RESULTS:
+: init.org
+
+* use-package
+#+BEGIN_SRC emacs-lisp
+  ;;; package --- Summary
+  ;;; Commentary:
+  ;;; Code:
+  (require 'package)
+  (setq packge-enable-at-startup nil)
+  (add-to-list 'package-archives
+               '("melpa" . "http://melpa.org/packages/"))
+
+  (add-to-list 'package-archives
+               '("melpa" . "http://melpa.milkbox.net/packages/") t)
+  (add-to-list 'package-archives '("org" . "https://orgmode.org/elpa/") t)
+  (setq package-load-list '(all))
+  (package-initialize)
+
+  (unless (package-installed-p 'use-package)
+    (package-refresh-contents)
+    (package-install 'use-package))
+
+
+#+END_SRC
+
+#+RESULTS:
+
+* org + orgmode
+[[https://cestlaz.github.io/posts/using-emacs-24-capture-2/][setting evernote-like binding to org-capture F1]]
+[[https://www.reddit.com/r/orgmode/comments/9kunnv/archiving_practices/][Archiving practices]]
+#+BEGIN_SRC emacs-lisp
+
+  ;;https://endlessparentheses.com/use-org-mode-links-for-absolutely-anything.html
+      (org-add-link-type
+       "tag" 'endless/follow-tag-link)
+
+      (defun endless/follow-tag-link (tag)
+        "Display a list of TODO headlines with tag TAG.
+      With prefix argument, also display headlines without a TODO keyword."
+        (org-tags-view (null current-prefix-arg) tag))
+      ;;https://emacs.stackexchange.com/questions/19598/org-mode-link-to-heading-in-other-org-file
+      (global-set-key (kbd "C-c l") 'org-store-link)
+      (global-set-key (kbd "C-c C-l") 'org-insert-link)
+(global-set-key (kbd "C-c a") 'org-agenda)
+(global-set-key (kbd "C-c c") 'org-capture)
+
+        (use-package org
+          :ensure t
+          :pin org
+          :config
+            (setq org-log-done t)
+            ;;; leave only 1 star in headlines
+            (setq org-startup-indented t)
+            )
+        
+
+      (setq org-startup-indented t
+            org-hide-leading-stars t)
+
+        ;;; load all frequenlty used files
+        (setq path_to_org_file "~/Dropbox/Org/")
+    (setq org-files (list "inbox.org"
+                          "цели.org"
+                          "заметки.org"
+                          "инкубатор идей.org"
+                          "Pr_list.org"
+                          "Pr_info.org"
+                          "Чтение.org"
+                          "tasks.org"
+                          "Some_when_maybe.org"
+                          "Привычки.org"
+                          "../emacs_files/init.org"))
+  (setq org-agenda-files (mapcar (lambda (x) (expand-file-name x path_to_org_file)) org-files))
+    (mapcar (lambda (x) (find-file x)) org-agenda-files)
+
+
+        ;; setting up org capture
+        (setq org-capture-templates
+              '(("t" "To do item" entry (file "~/Dropbox/Org/inbox.org")
+                 "* TODO %?\n%T")
+                ("l" "Link" entry (file+headline "~/Dropbox/Org/links.org" "Links")
+                  "* %? %^L %^g \n%T" :prepend t)))
+
+
+
+        (defadvice org-capture-finalize
+            (after delete-capture-frame activate)
+          "Advise capture-finalize to close the frame"
+          (if (equal "capture" (frame-parameter nil 'name))
+              (delete-frame)))
+
+        (defadvice org-capture-destroy
+            (after delete-capture-frame activate)
+        "Advise capture-destroy to close the frame"
+        (if (equal "capture" (frame-parameter nil 'name))
+            (delete-frame)))
+
+        (use-package noflet
+          :ensure t )
+        (defun make-capture-frame ()
+          "Create a new frame and run org-capture."
+          (interactive)
+          (make-frame '((name . "capture")))
+          (select-frame-by-name "capture")
+          (delete-other-windows)
+          (noflet ((switch-to-buffer-other-window (buf) (switch-to-buffer buf)))
+            (org-capture)))
+
+        (setq org-stuck-projects
+              '("+PROJECT/-MAYBE-DONE" ("NEXT" "TODO") ()
+                "\\<IGNORE\\>"))
+
+      '(org-clock-into-drawer "CLOCKING")
+
+
+        (setq org-archive-location
+            (concat "~/Dropbox/Org/archive_all"
+                    ".org::datetree/"))
+
+
+      ;; refiling
+      (setq org-refile-targets '(("~/Dropbox/Org/цели.org" :level . 2)))
+#+END_SRC
+
+#+RESULTS:
+: ((~/Dropbox/Org/цели.org :level . 2))
+
+* org-ref
+#+BEGIN_SRC emacs-lisp
+(setq user-emacs-directory "~/Desktop/org-ref-example/sandbox")
+
+(require 'cl)
+(require 'package)
+(setq package-archives
+      '(("org" . "http://orgmode.org/elpa/")
+	("gnu" . "http://elpa.gnu.org/packages/")
+	("melpa" . "http://melpa.org/packages/")))
+
+(package-initialize)
+
+(let ((packages (list 'org-plus-contrib 'org-ref)))
+  ; refresh if needed.
+  (unless (cl-every #'package-installed-p packages)
+    (package-refresh-contents))
+  
+  (dolist (package packages)
+    (unless (package-installed-p package)
+      (package-install package))))
+
+;; wrap lines
+(global-visual-line-mode 1)
+
+;; setup org-ref
+;; (setq org-ref-bibliography-notes "~/Desktop/org-ref-example/notes.org"
+      ;; org-ref-default-bibliography '("~/Desktop/org-ref-example/references.bib")
+      ;; org-ref-pdf-directory "~/Desktop/org-ref-example/bibtex-pdfs/")
+
+  (setq bibtex-completion-bibliography "~/Yandex.Disk/inbox/diplom/bibliography/references.bib"
+        bibtex-completion-library-path "~/Yandex.Disk/inbox/diplom/bibliography/bibtex-pdfs"
+        bibtex-completion-notes-path "~/Yandex.Disk/inbox/diplom/bibliography/helm-bibtex-notes"
+        org-ref-bibliography-notes "~~/Yandex.Disk/inbox/diplom/notes.org"
+        org-ref-default-bibliography '("~/Yandex.Disk/inbox/diplom/references.bib")
+        org-ref-pdf-directory "~/Yandex.Disk/inbox/diplom/bibtex-pdfs/")
+
+
+
+(unless (file-exists-p org-ref-pdf-directory)
+  (make-directory org-ref-pdf-directory t))
+
+;; Some org-mode customization
+(setq org-src-fontify-natively t
+      org-confirm-babel-evaluate nil
+      org-src-preserve-indentation t)
+
+(org-babel-do-load-languages
+ 'org-babel-load-languages '((python . t)))
+
+(setq org-latex-pdf-process
+      '("pdflatex -interaction nonstopmode -output-directory %o %f"
+	"bibtex %b"
+	"pdflatex -interaction nonstopmode -output-directory %o %f"
+	"pdflatex -interaction nonstopmode -output-directory %o %f"))
+
+(setq bibtex-autokey-year-length 4
+      bibtex-autokey-name-year-separator "-"
+      bibtex-autokey-year-title-separator "-"
+      bibtex-autokey-titleword-separator "-"
+      bibtex-autokey-titlewords 2
+      bibtex-autokey-titlewords-stretch 1
+      bibtex-autokey-titleword-length 5)
+
+(require 'dash)
+(setq org-latex-default-packages-alist
+      (-remove-item
+       '("" "hyperref" nil)
+       org-latex-default-packages-alist))
+
+;; Append new packages
+(add-to-list 'org-latex-default-packages-alist '("" "natbib" "") t)
+(add-to-list 'org-latex-default-packages-alist
+	     '("linktocpage,pdfstartview=FitH,colorlinks,
+linkcolor=blue,anchorcolor=blue,
+citecolor=blue,filecolor=blue,menucolor=blue,urlcolor=blue"
+	       "hyperref" nil)
+	     t)
+
+;; some requires for basic org-ref usage
+(require 'org-ref)
+(require 'org-ref-pdf)
+(require 'org-ref-url-utils)
+
+
+
+
+#+END_SRC
+
+#+RESULTS:
+: org-ref-url-utils
+
+* spaceline
+[[http://amitp.blogspot.com/2017/01/emacs-spaceline-mode-line.html][Emacs spaceline mode line]]
+#+BEGIN_SRC emacs-lisp
+(use-package spaceline :ensure t
+  :config
+  (setq-default mode-line-format '("%e" (:eval (spaceline-ml-main)))))
+
+(use-package spaceline-config :ensure spaceline
+  :config
+  (spaceline-emacs-theme))
+
+
+#+END_SRC
+
+#+RESULTS:
+: t
+
+* ibuffer
+#+BEGIN_SRC emacs-lisp
+  (global-set-key "\C-x\C-b" 'ibuffer)
+#+END_SRC
+
+#+RESULTS:
+: list-buffers
+
+* evil mode
+#+BEGIN_SRC emacs-lisp
+   (use-package evil
+     :ensure t
+     :config
+     (evil-mode 1))
+
+
+
+(define-key evil-normal-state-map (kbd "C-u") 'evil-scroll-up)
+(define-key evil-visual-state-map (kbd "C-u") 'evil-scroll-up)
+(use-package nlinum-relative
+  :ensure t
+    :config
+    ;; something else you want
+    (nlinum-relative-setup-evil)
+    (add-hook 'org-mode 'nlinum-relative-mode))
+ (define-key evil-normal-state-map "N" 'org-narrow-to-subtree) 
+ (define-key evil-normal-state-map "W" 'widen) 
+;; https://www.reddit.com/r/emacs/comments/8kfd3d/is_there_a_way_for_nlinumrelativemode_to_consider/
+(setq display-line-numbers-type 'visual)
+(when (version<= "26.0.50" emacs-version )
+  (global-display-line-numbers-mode))
+#+END_SRC
+
+#+RESULTS:
+: t
+
+* changing langunge
+#+BEGIN_SRC emacs-lisp
+(setq default-input-method "russian-computer")
+(global-set-key (kbd "C-,") 'toggle-input-method)
+
+#+END_SRC
+
+#+RESULTS:
+: toggle-input-method
+
+* sml
+#+BEGIN_SRC emacs-lisp
+(use-package sml-mode
+:ensure t)
+#+END_SRC
+
+#+RESULTS:
+
+* auto-complete
+#+BEGIN_SRC emacs-lisp
+
+(use-package auto-complete
+  :ensure t
+  :init
+  (progn
+    (ac-config-default)
+    (global-auto-complete-mode t)
+    ))
+
+
+#+END_SRC
+
+#+RESULTS:
+
+* web mode
+https://www.youtube.com/watch?v=69bQa5n23jc
+http://web-mode.org/
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'load-path "~/.emacs.d/lisp-site/web-mode/")
+(require 'web-mode)
+
+
+    (add-to-list 'auto-mode-alist '("\\.html?\\'" . web-mode))
+    (setq web-mode-ac-sources-alist
+	  '(("css" . (ac-source-css-property))
+	    ("html" . (ac-source-words-in-buffer ac-source-abbrev))))
+    (setq web-mode-enable-auto-quoting t)
+    (setq web-mode-enable-auto-closing t)
+#+END_SRC
+
+#+RESULTS:
+: t
+
+* Python
+
+for elpy configuration see:
+[[https://emacs.stackexchange.com/questions/16637/how-to-set-up-elpy-to-use-python3][how to use python3 is elpy]]
+[[https://github.com/jorgenschaefer/elpy/issues/1521][how to deal with elpy if it is slow too much]]
+
+#+BEGIN_SRC emacs-lisp
+  (setq py-python-command "python3")
+  (setq python-shell-interpreter "python3")
+   
+      (org-babel-do-load-languages
+       'org-babel-load-languages
+       '((python . t)))
+      (setq org-babel-python-command "python3")
+
+
+  (use-package elpy
+    :ensure t
+    :config
+    (progn
+      (setq eldoc-idle-delay 1)
+      (elpy-enable)
+      (setq elpy-rpc-python-command "python3"))
+    )
+
+  (use-package virtualenvwrapper
+    :ensure t
+    :config
+    (venv-initialize-interactive-shells)
+    (venv-initialize-eshell))
+
+#+END_SRC
+
+#+RESULTS:
+: t
+
+* theme 
+https://peach-melpa.org/
+https://emacsthemes.com/
+
+[[http://pragmaticemacs.com/emacs/get-that-spacemacs-look-without-spacemacs/][how to install and set up spacemacs theme]]
+[[https://github.com/TheBB/spaceline][powerline from spacemacs]]
+#+BEGIN_SRC emacs-lisp
+
+      ;; (use-package zenburn-theme
+        ;; :ensure t
+        ;; :config (load-theme 'zenburn t))
+
+
+    (use-package spacemacs-common
+        :ensure spacemacs-theme
+        :config 
+        (progn
+          (load-theme 'spacemacs-dark t)
+          (setq spacemacs-theme-org-agenda-height nil)
+          (setq spacemacs-theme-org-height nil)))
+      
+
+  ;; set sizes here to stop spacemacs theme resizing these
+  (set-face-attribute 'org-level-1 nil :height 1.0)
+  (set-face-attribute 'org-level-2 nil :height 1.0)
+  (set-face-attribute 'org-level-3 nil :height 1.0)
+  (set-face-attribute 'org-scheduled-today nil :height 1.0)
+  (set-face-attribute 'org-agenda-date-today nil :height 1.1)
+  (set-face-attribute 'org-table nil :foreground "#008787")
+
+  (custom-set-faces )
+
+
+
+#+END_SRC
+
+#+RESULTS:
+
+
+* Dired
+[[https://emacs.stackexchange.com/questions/38553/dired-missing-from-melpa][dired+ is unavailable from melpa]] taken file from [[https://github.com/emacsmirror/dired-plus][here]]
+[[http://qerub.se/hiding-hidden-files-in-emacs-dired][about hiding files with given regex pattern in dired-x]]
+[[https://oremacs.com/2015/01/04/dired-nohup/][Start a process from dired(also lauch a video player from dired)]]
+#+BEGIN_SRC emacs-lisp
+  (add-to-list 'load-path "~/.emacs.d/lisp-site/dired+/")
+  (require 'dired+)
+
+  (use-package pcre2el
+    :ensure t
+    :config
+    (pcre-mode)
+    )
+
+
+
+  (require 'dired-x)
+  (setq dired-omit-files "^\\...+$|^#.*#$|^\\.")
+  (add-hook 'dired-mode-hook (lambda () (dired-omit-mode 1)))
+
+  (require 'dired-x)
+
+  (setq dired-guess-shell-alist-user
+        '(("\\.pdf\\'" "evince" "okular")
+          ("\\.\\(?:djvu\\|eps\\)\\'" "evince")
+          ("\\.\\(?:jpg\\|jpeg\\|png\\|gif\\|xpm\\)\\'" "eog")
+          ("\\.\\(?:xcf\\)\\'" "gimp")
+          ("\\.csv\\'" "libreoffice")
+          ("\\.tex\\'" "pdflatex" "latex")
+          ("\\.\\(?:mp4\\|webm\\|mkv\\|avi\\|flv\\|ogv\\)\\(?:\\.part\\)?\\'"
+           "vlc")
+          ("\\.\\(?:mp3\\|flac\\)\\'" "rhythmbox")
+          ("\\.html?\\'" "firefox")
+          ("\\.cue?\\'" "audacious")))
+
+
+  (require 'dired-aux)
+
+  (defvar dired-filelist-cmd
+    '(("vlc" "-L")))
+
+  (defun dired-start-process (cmd &optional file-list)
+    (interactive
+     (let ((files (dired-get-marked-files
+                   t current-prefix-arg)))
+       (list
+        (dired-read-shell-command "& on %s: "
+                                  current-prefix-arg files)
+        files)))
+    (let (list-switch)
+      (start-process
+       cmd nil shell-file-name
+       shell-command-switch
+       (format
+        "nohup 1>/dev/null 2>/dev/null %s \"%s\""
+        (if (and (> (length file-list) 1)
+                 (setq list-switch
+                       (cadr (assoc cmd dired-filelist-cmd))))
+            (format "%s %s" cmd list-switch)
+          cmd)
+        (mapconcat #'expand-file-name file-list "\" \"")))))
+
+  (define-key dired-mode-map "r" 'dired-start-process)
+#+END_SRC
+
+#+RESULTS:
+: dired-start-process
+
